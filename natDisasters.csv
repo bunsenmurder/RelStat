@@ -1,0 +1,52 @@
+States,Abbreviation,Blizzards,Earthquakes,Hurricanes,Ice_Storms,Thunderstorms,Tornadoes,Tsunamis,Volcanoes
+Alabama,AL,0,0,1,0,1,0,0,0
+Alaska,AK,1,1,0,0,0,0,1,1
+Arizona,AZ,0,0,0,0,1,0,0,0
+Arkansas,AR,0,1,1,0,1,0,0,0
+California,CA,0,1,0,0,0,0,1,1
+Colorado,CO,1,0,0,1,1,1,0,0
+Connecticut,CT,0,0,1,1,0,0,0,0
+Delware,DE,0,0,1,1,0,0,0,0
+Florida,FL,0,0,1,0,1,0,0,0
+Georgia,GA,0,0,1,0,1,0,0,0
+Hawaii,HI,0,0,1,0,0,0,1,1
+Idaho,ID,1,0,0,0,0,0,0,0
+Illinois,IL,1,1,0,1,1,0,0,0
+Indiana,IN,1,0,0,1,1,0,0,0
+Iowa,IA,1,0,0,1,1,0,0,0
+Kansas,KS,1,0,0,1,1,1,0,0
+Kentucky,KY,0,1,0,0,1,0,0,0
+Louisiana,LA,0,0,1,0,1,0,0,0
+Maine,ME,0,0,1,1,0,0,0,0
+Maryland,MD,0,0,1,1,0,0,0,0
+Massachusetts,MA,0,0,1,1,0,0,0,0
+Michigan,MI,1,0,0,1,1,0,0,0
+Minnesota,MN,1,0,0,1,1,0,0,0
+Mississippi,MS,0,0,1,0,1,0,0,0
+Missouri,MO,1,1,0,1,1,0,0,0
+Montana,MT,1,0,0,0,0,0,0,0
+Nebraska,NE,1,0,0,1,1,1,0,0
+Nevada,NV,0,0,0,0,0,0,0,0
+New Hampshire,NH,0,0,1,1,0,0,0,0
+New Jersey,NJ,0,0,1,1,0,0,0,0
+New Mexico,NM,0,0,0,0,1,0,0,0
+New York,NY,0,0,1,1,0,0,0,0
+North Carolina,NC,0,0,1,0,1,0,0,0
+North Dakota,ND,1,0,0,1,1,0,0,0
+Ohio,OH,0,0,0,1,1,0,0,0
+Oklahoma ,OK,0,0,0,1,1,1,0,0
+Oregon,OR,0,1,0,0,0,0,1,1
+Pennsylvania,PA,0,0,1,1,0,0,0,0
+Rhode Island,RI,0,0,1,1,0,0,0,0
+South Carolina,SC,0,0,1,0,1,0,0,0
+South Dakota,SD,1,0,0,1,1,1,0,0
+Tennessee,TN,0,1,0,1,1,0,0,0
+Texas,TX,0,0,1,1,1,1,0,0
+Utah,UT,0,1,0,0,0,0,0,0
+Vermont,VT,0,0,1,1,0,0,0,0
+Virginia,VA,0,0,1,1,0,0,0,0
+Washington,WA,0,1,0,0,0,0,1,1
+Washington,DC,0,0,1,1,0,0,0,0
+West Virginia,WV,0,0,0,1,0,0,0,0
+Wisconsin,WI,1,0,0,1,1,0,0,0
+Wyoming,WY,1,0,0,1,0,0,0,0

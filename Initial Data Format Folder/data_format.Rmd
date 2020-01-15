@@ -1,0 +1,531 @@
+---
+title: "R Notebook"
+output:
+  html_notebook: default
+---
+```{r}
+library(tidyverse)
+library(forcats)
+library(splitstackshape)
+library(GSODR)
+library(weathermetrics)
+library(ggrepel)
+library(dbscan)
+library(geonames)
+library(caret)
+library(factoextra)
+#options(geonamesUsername= "YOUR_GEONAMES_USER_NAME_HERE", geonamesHost="api.geonames.org")
+```
+This file is where data formatting is done for various datasets is done. All write_csv commands are commented out after the dataset is created to prevent any unecessary overwrites.
+
+## Note: Explanations for all variables found within paper written on this analysis.
+# Formatting the usCol dataset
+The usCol dataset was obtained from previous project. The formatting to create the dataset is pasted here just to show the original method of created the usCol dataset. 
+
+
+Here we start off by performing some data pre-processing and fetching data points need to help with visualizations of this data. We obtain the cost-of-living for 2018 from numbeo.com which is obtained from the Professors github. The dataframe is then fitered out to only include entries from the continental United States. From there a salary index is obtained from the Local Purchasing Power Index and Cost of Living Plus Rent Index. Then from there the Latitude and Longitude for each city within the dataframe is returned using Geonames R plugin, which takes the City and states as inputs.
+```{r}
+# col <- read.csv("https://raw.githubusercontent.com/reisanar/datasets/master/cost-of-living-2018.csv")
+# usCol<- col %>% 
+#   filter(grepl("United States", City)) %>%
+#   separate(City, c("City","State"), sep = "[,]")
+# usCol <- usCol %>% filter(City != "Honolulu" & City != "Anchorage")
+# usCol$Avg.Disp.Sal.Index <- NA
+# usCol$lat <- NA
+# usCol$lng <- NA
+# for(row in 1:nrow(usCol)){
+#   x <- usCol[row, "Local.Purchasing.Power.Index"]
+#   y <- usCol[row, "Cost.of.Living.Plus.Rent.Index"]
+#   res <- (x*y)/100
+#   usCol[row, "Avg.Disp.Sal.Index"] <- res
+# }
+# for(row in 1:nrow(usCol)){
+#   x <- usCol[row, "City"]
+#   y <- usCol[row, "State"]
+#   res <- GNsearch(name = x, adminCode1 = y, country="US", maxRows = 1)
+#   usCol[row, "lat"] <- res$lat
+#   usCol[row, "lng"] <- res$lng
+# }
+# usCol$Avg.Disp.Sal.Index <- as.double(usCol$Avg.Disp.Sal.Index)
+# usCol$lat <- as.double(usCol$lat)
+# usCol$lng <- as.double(usCol$lng)
+# usCol$State <- as.factor(usCol$State)
+```
+
+```{r}
+#write_csv(usCol, "usCol.csv")
+```
+
+
+#Formatting for the BEA dataset
+
+```{r}
+#rpp_unformat <- read.csv("rpp.csv")
+#usCol <- read.csv("usCol.csv")
+#usColRpp <- read.csv("usCol_Rpp.csv")
+```
+
+```{r echo = FALSE, message = FALSE}
+#rpp <- rpp_unformat%>% 
+#separate(GeoName, c("City","State"), sep = "[,]")
+#rpp$State <- substr(rpp$State, 1, 2)
+#head(rpp)
+```
+Merge code to merge usCol and rpp as best as possible. The code is commented out to prevent any unessary rewrites.
+```{r}
+usCol_rpp <- merge(x = usCol, y = rpp, by = c("City","State"), all.x = TRUE)
+#write_csv(usCol_rpp, "usCol_rpp.csv")
+```
+
+At this step the gaps are filled in by hand, and unecessary columns are removed in excel. The code is commented out to prevent any unessary rewrites.
+```{r}
+#write_csv(usCol_rpp, "usCol_rpp.csv")
+```
+
+Load dataframes for adding Rent Index to BEA and for obtained weather data. Adding Rent Index to BEA is done first, then obtaining of weather data. The gsub method is to ensure there is no spaces within the State column, an error that was no accounted for earlier.
+```{r}
+usCol_rpp <- read.csv("usCol_rpp.csv")
+BEA_rpp <- read.csv("BEA_rpp_plus_rent.csv")
+BEA_rpp_sep <- spread(BEA_rpp, key = "RPP_c", value = "vals") %>% select(c(1,4,5)) 
+usCol_rpp$State <-  gsub(" ", "", as.character(usCol_rpp$State), fixed = TRUE)
+names(BEA_rpp_sep) <- c("Geoname", "Rent.Index", "Regional.Price.Parity")
+head(BEA_rpp_sep)
+```
+Format the BEA_rpp_rent, to seperate city from states. Seperate each State that has more than one into multiple columns.  The csplit function splits each row value within a column if they are sepereated by -, this done for City first, then to the State column.This does create copies of the city which might be conencted to the wrong state, but that won't matter once the dataframe is fused to usCol_BEA, as we will join the data based on the City, state, and rpp value.
+```{r}
+#BEA_rpp_rent <- BEA_rpp_sep %>% 
+#separate(Geoname, c("City","State"), sep = "[,]")
+#BEA_rpp_rent <- cSplit(BEA_rpp_rent, "City", "-", direction = "long")
+#BEA_rpp_rent <- cSplit(BEA_rpp_rent, "State", "-", direction = "long")
+#BEA_rpp_rent$State <- substr(BEA_rpp_rent$State, 1, 2)
+#head(BEA_rpp_rent)
+```
+
+Here we use the merge function to do a Left Outer join, to join the BEA_rpp_rent dataframe to the usCol_rpp dataframe, allowing us to obtain the Rent.Index to be used in clustering. Uneeded columns from the origional usCol dataframe is dropped as it will be loaded seperately into the Shiny app. After that is done, any NAs left are manually filled in using the closest geographical city if the city is not present in the dataframe, or filled in with the correct info if there is an error.
+```{r}
+usCol_BEA_fn <- merge(x = usCol_rpp, y = BEA_rpp_rent, by = c("City","State","Regional.Price.Parity"), all.x = TRUE)
+usCol_BEA_fn <- usCol_BEA_fn %>% select(c(1:3,9,7:8))
+#write_csv(usCol_BEA_fn, "usCol_BEA_fn.csv")
+```
+
+Using Real Personal Income for Average Salary of a Metropolitan Area,obtained from the BEA's 2016 data on Real Personal Income.The rpi_msa.csv fileis an edited version of the dataset obtained from the BEA, with the Real Personal Income for the United States moved to the indexSet file, unesscary data removed, and columns renamed.We format this data set and merge it with our data frame.
+```{r}
+usCol_BEA_fn_1 <- read.csv("usCol_BEA_fn.csv")
+rpi_msa <- read.csv("rpi_msa.csv")
+indexSet <- read.csv("indexSet.csv")
+```
+
+The newly created usCol_BEA_rpi dataframe is edited manually in excel to fill in any missing values.
+```{r}
+rpi_sep <- rpi_msa %>% 
+separate(GeoName, c("City","State"), sep = "[,]")
+rpi_sep <- cSplit(rpi_sep, "City", "-", direction = "long")
+rpi_sep <- cSplit(rpi_sep, "State", "-", direction = "long")
+rpi_sep$State <- substr(rpi_sep$State, 1, 2)
+usCol_BEA_rpi <- merge(x = usCol_BEA_fn_1, y = rpi_sep, by = c("City","State"), all.x = TRUE)
+usCol_BEA_rpi <- usCol_BEA_rpi %>% select(c(1,2,7,3,4:6))
+#write.csv(usCol_BEA_rpi, "usCol_BEA_rpi.csv")
+```
+
+Load newly created data frame with Real Personal Income. Calculate Average Salary Index, Local Purchasing Power, and Local Purchasing Power Index.
+```{r}
+usCol_BEA_rpi <- read.csv("usCol_BEA_rpi.csv")
+```
+
+```{r}
+usCol_BEA_rpi$Avg.Sal.Index <- NA
+for(row in 1:nrow(usCol_BEA_rpi)){
+  x <- usCol_BEA_rpi[row, "Avg.Salary"]
+  y <- indexSet[1,3]
+  res <- (x/y)*100
+  usCol_BEA_rpi[row, "Avg.Sal.Index"] <- round(res, digits = 1)
+}
+usCol_BEA_rpi$Avg.Sal.Index <- as.double(usCol_BEA_rpi$Avg.Sal.Index)
+rm(res, x, y)
+```
+
+```{r}
+usCol_BEA_rpi$LPP.Index <- NA
+usCol_BEA_rpi$Local.Purchasing.Power <- NA
+for(row in 1:nrow(usCol_BEA_rpi)){
+  x <- usCol_BEA_rpi[row, "Avg.Sal.Index"]
+  z <- usCol_BEA_rpi[row, "Avg.Salary"]
+  y <- usCol_BEA_rpi[row, "Regional.Price.Parity"]
+  res <- (x/y)*100
+  res2 <- (z/y)*100
+  usCol_BEA_rpi[row, "LPP.Index"] <- round(res, digits = 1)
+  usCol_BEA_rpi[row, "Local.Purchasing.Power"] <- round(res2, digits = 0)
+}
+rm(res, x, y, res2, z)
+usCol_BEA_rpi$LPP.Index <- as.double(usCol_BEA_rpi$LPP.Index)
+usCol_BEA_rpi$Local.Purchasing.Power <- as.integer(usCol_BEA_rpi$Local.Purchasing.Power)
+usCol_BEA_rpi <- usCol_BEA_rpi %>% select(c(1:3,8,10,4,9,5:7))
+#write_csv(usCol_BEA_rpi, "usCol_BEA_correct.csv")
+```
+
+##Clustering on numbeo and bea data
+For this section, I make the final dataframes for our numbeo and BEA data. By clustering on Local Purchasing Power and Rent indicies for both dataframes, I am able to obtain classifications on which City is which. These dataframes are then loaded into the Shiny application to be displayed on an interactive map. 
+
+First the data is loaded and their row names are set their respective City and States, then the columns that are being clusterd are normalized and stored in their own dataframe for analysis.
+```{r}
+usCol <- read.csv("usCol.csv")
+usCol$State <-  gsub(" ", "", as.character(usCol$State), fixed = TRUE)
+usCol_BEA_fn <- read.csv("usCol_BEA_correct.csv")
+set.seed(20)
+```
+
+```{r}
+row.names(usCol) <- paste(usCol$City,usCol$State, sep = "_")
+row.names(usCol_BEA_fn) <- paste(usCol_BEA_fn$City,usCol_BEA_fn$State, sep = "_")
+usC <- preProcess(usCol[,c(8,4)], method = c("range")) %>% predict(usCol[,c(8,4)])
+usCB <- preProcess(usCol_BEA_fn[,7:8], method = c("range")) %>% predict(usCol_BEA_fn[,7:8])
+```
+
+First off I want to use DBscan to identify outlier points, so I can seperate them from my dataframes and run Hiearchial clustering on the outliers and main points. By creating kNN dist plots, I can find the best parameters to run with a DBScan.
+```{r}
+kNNdistplot(usC , k = 4)
+abline(h = .12, lty =2)
+kNNdistplot(usCB , k = 3)
+abline(h = .076, lty =2)
+```
+
+Next, up I'll plug in the  parameters I found with the kNNdist plots above.
+```{r}
+usCol_dbscan <- dbscan(usC, eps = .12, minPts = 4)
+usC$group <- as.factor(usCol_dbscan$cluster)
+usCol_dbscan
+```
+
+```{r}
+usCol_BEA_dbscan <- dbscan(usCB, eps = .076, minPts = 3)
+usCB$group <- as.factor(usCol_BEA_dbscan$cluster)
+usCol_BEA_dbscan
+```
+
+The results of the DBScan's will be graphed in fviz_cluster plots below.
+```{r}
+fviz_cluster(usCol_dbscan, usC[,1:2],
+             geom = "point", ellipse = F) 
+```
+
+```{r}
+fviz_cluster(usCol_BEA_dbscan, usCB[,1:2],
+             geom = "point", ellipse = F) 
+```
+The results from the fviz_clusters show that there is a huge main cluster for both dataframe that is similar to each other. An interesting thing I noticed with the plot for the US_BEA data is that not only is there a big cluster and outliers,there are three distinct clusters that show an interesting pattern of clustering. I think the best option would actually be to, consider those distinct clusters as outlier points, as they seem to be far enough to be their own groups.
+
+Next I will seperate the outlier points from my main points and run hiarchial clustering on each seperately for dataframes. I also convert the row names to columns and back to row names to maintain an idea of which city is which.
+```{r}
+usC_out <- usC %>% 
+  rownames_to_column('City') %>% 
+  filter(group == 0) %>% 
+  column_to_rownames('City')
+usC_1 <- usC %>% 
+  rownames_to_column('City') %>% 
+  filter(group != 0) %>% 
+  column_to_rownames('City')
+usCB_out <- usCB %>% 
+  rownames_to_column('City') %>% 
+  #filter(group == 0) %>%
+  filter(group != 1) %>% 
+  column_to_rownames('City')
+usCB_1 <- usCB %>% 
+  rownames_to_column('City') %>% 
+  #filter(group!= 0) %>% 
+  filter(group == 1) %>% 
+  column_to_rownames('City')
+```
+
+*Outliers*
+usCol_out
+```{r}
+d_usC_out <- dist(usC_out[, c("Local.Purchasing.Power.Index", "Rent.Index")])
+hc_usC_out <- hclust(d_usC_out, method = "average")
+comp0 <- cutree(hc_usC_out, 4)
+usC_out$City.Category <- as.factor(comp0)
+ggplot(data = usC_out, aes(x = Local.Purchasing.Power.Index, y = Rent.Index, color = City.Category, label = row.names(usC_out))) + geom_point() + geom_text_repel()
+```
+usCol_BEA_out
+```{r}
+d_usCB_out <- dist(usCB_out[, c("LPP.Index", "Rent.Index")])
+hc_usCB_out <- hclust(d_usCB_out, method = "average")
+comp1 <- cutree(hc_usCB_out, 4)
+usCB_out$City.Category <- as.factor(comp1)
+ggplot(data = usCB_out,mapping = aes(x = LPP.Index, y = Rent.Index, color = City.Category, label = row.names(usCB_out))) + geom_point() + geom_text_repel()
+```
+
+*Non-outliers*
+usCol_1
+```{r}
+d_usC_1 <- dist(usC_1[, c("Local.Purchasing.Power.Index", "Rent.Index")])
+hc_usC_1 <- hclust(d_usC_1, method = "complete")
+comp2 <- cutree(hc_usC_1, 6)
+usC_1$City.Category <- as.factor(comp2)
+ggplot(data = rownames_to_column(usC_1,'City') %>% 
+       separate(City, c("city","State"), sep = "[_]"), 
+       aes(x = Local.Purchasing.Power.Index, y = Rent.Index, color = City.Category, label = city)) + geom_point() + geom_text_repel(size = 2.5)
+```
+
+usCol_BEA_1
+```{r}
+d_usCB_1 <- dist(usCB_1[, c("LPP.Index", "Rent.Index")])
+hc_usCB_1 <- hclust(d_usCB_1, method = "complete")
+comp3 <- cutree(hc_usCB_1, 7)
+usCB_1$City.Category <- as.factor(comp3)
+ggplot(data = rownames_to_column(usCB_1,'City') %>% separate(City, c("city","State"), sep = "[_]"),mapping = aes(x = LPP.Index, y = Rent.Index, color = City.Category, label = city)) + geom_point() + geom_text_repel(size = 2.5)
+```
+
+
+```{r}
+levels(usC_out$City.Category) <- c(7,8,9,10)
+usC_1$City.Category <- factor(usC_1$City.Category, levels = c(levels(usC_1$City.Category),7:10))
+usC_com <- bind_rows((rownames_to_column(usC_1,'city') %>% separate(city, c("City","State"), sep = "[_]")), 
+(rownames_to_column(usC_out,'city') %>% separate(city, c("City","State"), sep = "[_]")))
+NBEO_usCol <- merge(x = usCol, y = usC_com[,c(1,2,6)], by = c("City","State"))
+```
+
+```{r}
+levels(usCB_out$City.Category) <- c(8:11)
+usCB_1$City.Category <- factor(usCB_1$City.Category, levels = c(levels(usCB_1$City.Category),8:11))
+usCB_com <- bind_rows((rownames_to_column(usCB_1,'city') %>% separate(city, c("City","State"), sep = "[_]")), (rownames_to_column(usCB_out,'city') %>% separate(city, c("City","State"), sep = "[_]")))
+BEA_usCol <- merge(x = usCol_BEA_fn, y = usCB_com[,c(1,2,6)], by = c("City","State"))
+```
+
+```{r}
+ggplot(data = NBEO_usCol,mapping = aes(x = Local.Purchasing.Power.Index, y = Cost.of.Living.Plus.Rent.Index, color = City.Category, label = City)) + geom_point() + geom_text_repel(size = 2.5)
+```
+
+```{r}
+ggplot(data = BEA_usCol,mapping = aes(x = LPP.Index, y = Rent.Index, color = City.Category, label = City)) + geom_point() + geom_text_repel(size = 2.5)
+```
+
+```{r}
+NBEO_usCol <- mutate(NBEO_usCol, City.Category = fct_recode(City.Category,
+                            "Avg CP,\nHigh DS" = "1",
+                             "Low CP,\nLow DS" = "2",
+                             "Low-Avg CP,\nHigh DS" = "3",
+                             "Avg CP,\nAvg DS" = "4",
+                             "Avg CP,\nLow DS" = "5",
+                             "High CP,\nLow DS" = "6",
+                             "Low CP,\nHighest DS" = "7",
+                             "Lowest CP,\nHigh DS" = "9",
+                             "Low CP,\nHigh DS" = "8",
+                             "Lowest CP,\nLow DS" = "10"
+                             ))
+```
+
+```{r}
+BEA_usCol <- mutate(BEA_usCol, City.Category = fct_recode(City.Category,
+                            "Avg CP,\nLow DS" = "1",
+                             "Low-Avg CP,\nHigh DS" = "2",
+                             "Lowest CP,\nAvg DS" = "3",
+                             "Low CP,\nAvg DS" = "4",
+                             "Low CP,\nLow DS" = "5",
+                             "High CP,\nLow DS" = "6",
+                             "Avg CP,\nAvg DS" = "7",
+                             "Lowest-Low CP,\nHigh DS" = "8",
+                             "Avg CP,\nHigh DS" = "9",
+                             "Avg CP,\nHighest DS" = "10",
+                             "Highest CP,\nLow DS" = "11"
+                             ))
+```
+
+Write files with groupings once done
+```{r}
+write.csv(BEA_usCol, "BEA_usCol.csv")
+write.csv(NBEO_usCol, "NBEO_usCol.csv")
+```
+
+For the last section, the goal is obtaining the weather data for each city; I created the functions wxForCityByYr, and season_stats to do just that. For both functions below I filtered by just the yearmoda function instead of splitting it by the month and day columns as I would need to perform other operations besides averaging weather to find climate, such as obtaining maximums and minimums per season, as well as measuring frequency of binary variables within dataframe. Although it takes more space, it make formatting and operations on data easier. 
+
+The Weather For City By year function,obtains weather data from nearest weather stations within a 400km/248mile radius, set this as anything and Texas weather stations seem pretty bad with having consitent weather will only go that far if no other closer results are found. The loop goes through each year specifically to ensure that results for a year exist, as the stations might have a few of the years specified, but will not return those years that they do have.It then formats the weather data and returns a dataframe with the results for a specified city.
+
+```{r}
+usCol_BEA <- read_csv("BEA_usCol.csv")
+```
+
+```{r echo=FALSE, message=FALSE}
+wxForCityByYr <- function(latitude, longitude, year){
+  station <- nearest_stations(latitude, longitude, 400)
+  n = 1
+  results <- list()
+  for (i in year){
+    count <- 0
+    isGT365 <- FALSE
+    while (isGT365 == FALSE){
+      count <- count + 1
+      r1 <- get_GSOD(years = i, station = station[[count]])
+      if(nrow(r1) != 0 && (nrow(r1) %% 365 == 0 || nrow(r1) %% 365 == 1 )){
+        r2 <- select(r1, (c("YEARMODA","ELEV_M","TEMP","RH","WDSP","PRCP","MAX", "MIN", "I_FOG", "I_RAIN_DRIZZLE","I_SNOW_ICE","I_SNOW_ICE","I_HAIL","I_THUNDER","I_TORNADO_FUNNEL")))
+        if(!any(is.na(r2))){
+          results[[n]] <- r2
+          n <- n + 1
+          isGT365 <- TRUE
+        }
+      }
+    }
+  }
+  res <- bind_rows(results)
+  res$TEMP <- celsius.to.fahrenheit(res$TEMP, 2)
+  res$MAX <- celsius.to.fahrenheit(res$MAX, 2)
+  res$MIN <- celsius.to.fahrenheit(res$MIN, 2)
+  res$HI <- heat.index(res$TEMP, rh = res$RH)
+  res <- select(res, (c(1:3,15,4:14)))
+  datalist = list()
+  count <- 1
+  for (i in year[-1]){
+    n1 <- paste(as.character(i-1), "12-01", sep = "-")
+    n2 <- paste(as.character(i), "11-30", sep = "-")
+    datalist[[count]] <- res %>% filter(YEARMODA >= n1 & YEARMODA <= n2)
+    count <- count + 1
+  }
+  df <- bind_rows(datalist)
+  return(df)
+}
+```
+
+The Season Stats function takes the City and State with the accompanying weather dataframe, and years it spans then performs statistics on that weather data to obtain info about the climate. It does this on a seasonal basis and spits out 4 dataframes corresponding to each season stored within a list.We define the start of Winter for a season starting on beginning of December of the previous year.
+```{r}
+season_stats <- function(city_name, state_name, df, year){
+  datalist = list()
+  winterList <- list()
+  springList <- list()
+  summerList <- list()
+  fallList <- list()
+  count <- 1
+  for (i in year[-1]){
+    w1 <- paste(as.character(i-1), "12-01", sep = "-")
+    w2 <- paste(as.character(i), "02-28", sep = "-")
+    if (i %% 4 == 0){
+      w2 <- paste(as.character(i), "02-29", sep ="-")
+    }
+    sp1 <- paste(as.character(i), "03-01", sep ="-")
+    sp2 <- paste(as.character(i), "05-31", sep ="-")
+    su1 <- paste(as.character(i), "06-01", sep ="-")
+    su2 <- paste(as.character(i), "08-31", sep ="-")
+    fa1 <- paste(as.character(i), "09-01", sep ="-")
+    fa2 <- paste(as.character(i), "11-30", sep ="-")
+    winterList[[count]] <- df %>% filter(YEARMODA >= w1 & YEARMODA <= w2)
+    springList[[count]] <- df %>% filter(YEARMODA >= sp1 & YEARMODA <= sp2)
+    summerList[[count]] <- df %>% filter(YEARMODA >= su1 & YEARMODA <= su2)
+    fallList[[count]] <- df %>% filter(YEARMODA >= fa1 & YEARMODA <= fa2)
+    count <- count + 1
+  }
+  
+  winter_df <- bind_rows(winterList)
+  spring_df <- bind_rows(springList)
+  summer_df <- bind_rows(summerList)
+  fall_df <- bind_rows(fallList)
+  
+  winter_avgs <- lapply(winter_df[,c(3:7)], function(val) mean(val)) %>% bind_rows()
+  spring_avgs <- lapply(fall_df[,c(3:7)], function(val) mean(val)) %>% bind_rows()
+  summer_avgs <- lapply(summer_df[,c(3:7)], function(val) mean(val)) %>% bind_rows()
+  fall_avgs <- lapply(spring_df[,c(3:7)], function(val) mean(val)) %>% bind_rows()
+  
+  winter_otr <- lapply(winter_df[,c(10:15)], function(val) sum(val)) %>% bind_rows()
+  spring_otr <- lapply(fall_df[,c(10:15)], function(val) sum(val)) %>% bind_rows()
+  summer_otr <- lapply(summer_df[,c(10:15)], function(val) sum(val)) %>% bind_rows()
+  fall_otr <- lapply(spring_df[,c(10:15)], function(val) sum(val)) %>% bind_rows()
+  
+  winter_avgs$MAX <- max(winter_df$MAX)
+  winter_avgs$MIN <- min(winter_df$MIN)
+  spring_avgs$MAX <- max(spring_df$MAX)
+  spring_avgs$MIN <- min(spring_df$MIN)
+  summer_avgs$MAX <- max(summer_df$MAX)
+  summer_avgs$MIN <- min(summer_df$MIN)
+  fall_avgs$MAX <- max(fall_df$MAX)
+  fall_avgs$MIN <- min(fall_df$MIN)
+  
+  winter <- cbind(City = city_name, State = state_name, ELEV_M = winter_df[1,]$ELEV_M, winter_avgs, winter_otr)
+  
+  spring <- cbind(City = city_name, State = state_name, ELEV_M = spring_df[1,]$ELEV_M, spring_avgs, spring_otr)
+  
+  summer <- cbind(City = city_name, State = state_name, ELEV_M = summer_df[1,]$ELEV_M, summer_avgs, summer_otr)
+  
+  fall <- cbind(City = city_name, State = state_name, ELEV_M = fall_df[1,]$ELEV_M, fall_avgs, fall_otr)
+  
+  datalist[[1]] <- winter
+  datalist[[2]] <- spring
+  datalist[[3]] <- summer
+  datalist[[4]] <- fall
+  return(datalist)
+}
+```
+
+```{r}
+winterList <- list()
+springList <- list()
+summerList <- list()
+fallList <- list()
+```
+
+This chunk of code loops through our usCol_BEA dataframe taking every City and their location details and inputting into the two functions above until we have 4 dataframes per season containing climate statistics for each city. The statistics will be based on the years 2014-2018. Implemented if conditional to break at a set amount of loops, so I can slowly increment through the list, as looping 130 times stalls R and cause the data download to fail.
+```{r}
+for (row in 1:nrow(usCol_BEA)){
+  city <- usCol_BEA[row, "City"]
+  lat <- usCol_BEA[row, "lat"]
+  lng <- usCol_BEA[row, "lng"]
+  res <- wxForCityByYr(lat, lng, 2014:2018)
+  state <- 
+  city_seasonal_avgs <- season_stats(city, state, res, 2014:2018)
+  winterList[[row]] <- city_seasonal_avgs[[1]]
+  springList[[row]] <- city_seasonal_avgs[[2]]
+  summerList[[row]] <- city_seasonal_avgs[[3]]
+  fallList[[row]] <- city_seasonal_avgs[[4]]
+  if(row == 10){
+    break
+  }
+}
+```
+
+This chunk binds the list into dataframes, labels each row of each dataframe with their season, combines them all into one dataframe and wrties out the final weather dataframe.
+```{r}
+winter <- bind_rows(winterList)
+spring <- bind_rows(springList)
+summer <- bind_rows(summerList)
+fall <- bind_rows(fallList)
+winter$Season <- "Winter"
+spring$Season <- "Spring"
+summer$Season <- "Summer"
+fall$Season <- "Fall"
+climate14_18 <- bind_rows(winter,spring,summer,fall)
+climate14_18$Season <- as.factor(climate14_18$Season)
+#write.csv(climate14_18, "climate14_18.csv")
+```
+
+## Aggreagate cliamte data. Add this to last part when I get home.
+```{r}
+climate14_18 <- read_csv("../climate14_18.csv")
+climate14_18 %>% ggplot(aes(x = Season, y = TEMP, colour = TEMP)) +
+  geom_point(size = 1) + 
+  scale_colour_gradient2(low="#2E7DD2", mid = "#FAFF00", high="#FF5700", midpoint = 60) +
+  labs(x = "Seasons", y = "Temperatures") + geom_text_repel(data = filter(climate14_18, City == "Akron"), inherit.aes = FALSE, aes(x = Season, y = TEMP, label = City),  min.segment.length = unit(0, 'lines'), nudge_x = -.22)
+```
+# Moving formatting from global.R to this file so Shiny App will load, without needed to run these.
+```{r}
+# df_usCol_1 <- read.csv("../NBEO_usCol.csv")
+# df_BEA_usCol <- read.csv("../BEA_usCol.csv")
+# df_natDis <- read.csv("../natDisasters.csv")
+# climate14_18 <- read.csv("../climate14_18.csv")
+# df_usCol_1 <- df_usCol_1[-c(1)]
+# df_BEA_usCol <- df_BEA_usCol[-c(1)]
+# colnames(df_usCol_1)[9] <- "Avg.Salary"
+# colnames(df_usCol_1)[8] <- "Local.Purchasing.Power"
+# colnames(df_BEA_usCol)[6] <- "Cost.of.Living.Plus.Rent.Index"
+# colnames(df_BEA_usCol)[7] <- "Local.Purchasing.Power.Index"
+# state_list <- df_usCol_1$State %>% unique() %>% sort()
+# climate14_18$TEMP <- round(climate14_18$TEMP, 1)
+# climate14_18$MAX <- round(climate14_18$MAX, 1)
+# climate14_18$MIN <- round(climate14_18$MIN, 1)
+# climate14_18$HI <- round(climate14_18$HI, 1)
+# df_natDis <- df_natDis %>%
+#  mutate_at(3:10, as.character)
+# df_natDis[,c(3:10)] <- lapply(df_natDis[,c(3:10)], function(x) recode(x, '1'='Yes', '0'='No'))
+# save(df_usCol_1, df_BEA_usCol, state_list, climate14_18, df_natDis, file = "../data.RData")
+```
+
+```{r}
+load("data.RData")
+```
+
+
