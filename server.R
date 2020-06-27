@@ -43,7 +43,7 @@ server <- function(input, output, session) {
                                "Average Salary: ", data1$Avg.Salary, "<br>",
                                "Local Purchasing Power: ", data1$Local.Purchasing.Power, "<br>",
                                "Cash Potential: ", data1$Cash.Potential, "<br>",
-                               "Desirability: ", data1$Desirability, "<br>"
+                               "Popularity: ", data1$Desirability, "<br>"
                                #"City Category: ", data1$City.Category
                                ))
   })
@@ -103,7 +103,7 @@ server <- function(input, output, session) {
       theme(axis.title.y = element_text(size = rel(1.5))) +
       theme(axis.title.x = element_text(size = rel(1.5))) +
       theme(axis.text.y = element_text(size = rel(1.5))) +
-      theme(axis.text.x = element_text(size = rel(1.5), angle = 45, vjust = .5)) +
+      theme(axis.text.x = element_text(size = rel(1.5))) +
       theme(legend.text = element_text(size = rel(1.2))) +
       theme(legend.title = element_text(size = rel(1.2))) + l1
   }#, height = 420, width = 600

@@ -10,29 +10,34 @@ ui <-
                   tabItems(
                     tabItem(
                       tabName = "map",
-                      box(title = "City Map",
-                          leafletOutput("usa_map", height = "700")
-                          #width = "100%",
-                          #height = "100%",
-                          ),
-                      box(title = "Cash Pot", sliderInput("cp_cat", "Cash Potential", min = 1, max = 7, value=(c(1,7))), 
-                          selectInput("ds_cat", "Popularity", c("Categories"=""), multiple = TRUE),
-                          selectInput("input_state_cc", "State", c("States"=""),selected = "Florida", multiple = TRUE))
+                      fluidRow(column(width = 12,
+                                      box(title = "Metropolitan Area Map", width = NULL, solidHeader = TRUE, status = "primary",
+                                          leafletOutput("usa_map", height = "500"),
+                                          tags$div(id="cite", 'Source: ', tags$em(''), '2016 BEA Regional Price Parity & Real Personal Income')),
+                                      box(title = "Controls",width = NULL, solidHeader = TRUE, status = "warning", 
+                                          sliderInput("cp_cat", "Cash Potential", min = 1, max = 7, value=(c(1,7))), 
+                                          selectInput("ds_cat", "Popularity", c("Categories"=""), multiple = TRUE),
+                                          selectInput("input_state_cc", "State", c("States"=""),selected = "Florida", multiple = TRUE),
+                                          helpText(p("Cash Potential measures income potential accounting for living expenses(rent, food, etc.) in a city from lowest to highest."),
+                                                   p("Popularity measures how desirable it is to live in a city based on average cost of rent.")))
+                                      ))
                           ),
                     tabItem(
                       tabName = "c_det",
-                      #plotOutput
-                      #box(title = "Weather Graph",plotOutput("tempPlot")),
-                      #box(title = "Weather Graph",ggiraphOutput("tempPlot")),
-                      box(title = "Weather Graphs",plotOutput("tempPlot")),
-                      box(title = "Controls", 
-                          selectInput("states", "State", state_list),
-                          selectInput("cities", "City", c("All cities"="")),
-                          selectInput("temp_vars", "Temprature Measures", c("Average" = "TEMP", "Hottest" = "MAX", "Coldest" = "MIN", "Heat Index" = "HI"),selected = "TEMP"),
-                          tableOutput('disTbl')
-                          )
-                    )
-                    )
+                      fluidRow(column(width = 12,                      
+                                      box(title = "Weather Graphs", width = NULL, plotOutput("tempPlot"), solidHeader = TRUE, status = "primary"),
+                                      box(title = "Controls", width = NULL, solidHeader = TRUE, status = "warning",
+                                          selectInput("states", "State", state_list),
+                                          selectInput("cities", "City", c("All cities"="")),
+                                          selectInput("temp_vars", "Temprature Measures", c("Average" = "TEMP", "Hottest" = "MAX", "Coldest" = "MIN", "Heat Index" = "HI"),selected = "TEMP"),
+                                          tags$div(tags$b("Natural Disasters")),
+                                          tags$p(""),
+                                          tableOutput('disTbl'),
+                                          helpText(
+                                            p("The values on the graph highlight a selected citites temprature ranking compared to other cities."),
+                                            p("Heat index measures the humidity relative to the temprature.")))
+                                      ))
+                      ))
                   ),
                 skin = "blue"
                 )
@@ -43,10 +48,10 @@ ui <-
   #                 sidebarPanel(
   #                   helpText(p("Click any city to see more details!")),
   #                   sliderInput("cp_cat", "Cash Potential", min = 1, max = 7, value=(c(1,7))),
-  #                   helpText(p("Measures income potential in a city from lowest to highest. Based on average living expenses and average income.")),
+  #                   helpText(p("Cash Potential measures income potential accounting for living expenses(rent, food, etc.) in a city from lowest to highest.")),
   #                   
   #                   selectInput("ds_cat", "Popularity", c("Categories"=""), multiple = TRUE),
-  #                   helpText(p("Measures how desirable it is to live in a city. Based on cost of rent.")),
+  #                   helpText(p("Popularity measures how desirable it is to live in a city based on average cost of rent.")),
   #                   
   #                   selectInput("input_state_cc", "State", c("States"=""),selected = "Florida", multiple = TRUE)),
   #                 mainPanel(leafletOutput("usa_map", height = "700"),
@@ -55,18 +60,18 @@ ui <-
   #                 )),
   #   
   #   ## City Details Section of the Application
-  #   tabPanel("Climate",
-  #     sidebarLayout(position = "left",
-  #       sidebarPanel("Options",
-  #         selectInput("states", "State", state_list),
-  #         selectInput("cities", "City", c("All cities"="")),
-  #         selectInput("temp_vars", "Temprature Measures", c("Average" = "TEMP", "Hottest" = "MAX", "Coldest" = "MIN", "Heat Index" = "HI"),selected = "TEMP"),
-  #         tags$div(tags$b("Natural Disasters")),
-  #         tags$p(""),
-  #         tableOutput('disTbl'),
-  #         helpText(
-  #           p("The arrows on the graph highlights a selected citites temprature values compared to other cities."), 
-  #           p("Heat index measures the humidity relative to the temprature."))),
-  #       mainPanel(plotOutput("tempPlot"))
-  #       ))
+    # tabPanel("Climate",
+    #   sidebarLayout(position = "left",
+    #     sidebarPanel("Options",
+    #       selectInput("states", "State", state_list),
+    #       selectInput("cities", "City", c("All cities"="")),
+    #       selectInput("temp_vars", "Temprature Measures", c("Average" = "TEMP", "Hottest" = "MAX", "Coldest" = "MIN", "Heat Index" = "HI"),selected = "TEMP"),
+    #       tags$div(tags$b("Natural Disasters")),
+    #       tags$p(""),
+    #       tableOutput('disTbl'),
+    #       helpText(
+    #         p("The arrows on the graph highlights a selected citites temprature values compared to other cities."),
+    #         p("Heat index measures the humidity relative to the temprature."))),
+    #     mainPanel(plotOutput("tempPlot"))
+    #     ))
   #   )
