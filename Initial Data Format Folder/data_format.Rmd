@@ -466,7 +466,7 @@ for (row in 1:nrow(usCol_BEA)){
   lat <- usCol_BEA[row, "lat"]
   lng <- usCol_BEA[row, "lng"]
   res <- wxForCityByYr(lat, lng, 2014:2018)
-  state <- 
+  state <- usCol_BEA[row, "State"]
   city_seasonal_avgs <- season_stats(city, state, res, 2014:2018)
   winterList[[row]] <- city_seasonal_avgs[[1]]
   springList[[row]] <- city_seasonal_avgs[[2]]
@@ -521,11 +521,40 @@ climate14_18 %>% ggplot(aes(x = Season, y = TEMP, colour = TEMP)) +
 # df_natDis <- df_natDis %>%
 #  mutate_at(3:10, as.character)
 # df_natDis[,c(3:10)] <- lapply(df_natDis[,c(3:10)], function(x) recode(x, '1'='Yes', '0'='No'))
-# save(df_usCol_1, df_BEA_usCol, state_list, climate14_18, df_natDis, file = "../data.RData")
+save(df_usCol_1, df_BEA_usCol, state_list, climate14_18, df_natDis, file = "../data.RData")
 ```
 
 ```{r}
-load("data.RData")
+df_BEA_usCol$city_cat <- df_BEA_usCol$City.Category
+df_usCol_1$city_cat <- df_BEA_usCol$City.Category
+df_BEA_usCol <- df_BEA_usCol %>% separate(col = city_cat, into=c("Cash.Potential", "Desirability"), sep=",\n")
+df_usCol_1 <- df_usCol_1 %>% separate(col = city_cat, into=c("Cash.Potential", "Desirability"), sep=",\n")
+```
+
+```{r}
+df_BEA_usCol$Cash.Potential %>% unique()
+df_BEA_usCol$Desirability %>% unique()
+```
+```{r}
+df_BEA_usCol <- df_BEA_usCol %>% 
+  mutate_at("Cash.Potential", ~recode_factor(., "Lowest CP"=1, "Lowest-Low CP"=2, "Low CP"=3,"Low-Avg CP"=4, "Avg CP" = 5, "High CP"=6, "Highest CP"=7)) %>% 
+  mutate_at("Desirability", ~recode_factor(.,"Low DS"="Not Popular", "Avg DS"="Average", "High DS"="Popular", "Highest DS"="Very Popular"))
+df_BEA_usCol
+```
+
+```{r}
+df_natDis <- rename(df_natDis, "Ice Storms"="Ice_Storms")
+df_natDis
+```
+```{r}
+df_natDis %>% filter(Abbreviation == "FL") %>% select(-c(1,2)) %>% tidyr::gather(everything(), key="Disaster", val="Bool") %>% mutate_at("Bool", ~factor(recode_factor(., "No"=0, "Yes"=1))) %>% filter(Bool==1) %>% select("Disaster")
+```
+```{r}
+df_natDis %>% filter(Abbreviation == "FL") %>% select(-c(1,2)) %>% tidyr::pivot_longer(everything(), names_to="Disaster") %>% filter(value=="Yes") %>% select("Disaster")
+```
+
+```{r}
+load("../data.RData")
 ```
 
 
