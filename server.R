@@ -49,7 +49,7 @@ server <- function(input, output, session) {
   ds_list <- df_BEA_usCol %>% `$`('Desirability') %>% sort() %>% unique() %>% as.character()
   updateSelectInput(session, "ds_cat", choices = ds_list)
   
-  observe({
+  observeEvent(input$ds_cat, {
     #if(is.null(input$input_state_cc)){
       states_per_cat <- 
       if(!is.null(input$ds_cat)){
@@ -66,7 +66,7 @@ server <- function(input, output, session) {
   })
   
   #City Details
-  observe({
+  observeEvent(input$states, {
     city_list <- if (is.null(input$states)) character(0) else {
       df_usCol_1 %>% filter(State == input$states) %>% 
         `$`('City') %>%

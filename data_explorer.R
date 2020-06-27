@@ -1,5 +1,5 @@
 # Authored by Natalie Brum
-library(DT)
+#library(DT)
 de_server <- function(input, output, session){
   #output$df_usCol_1 <- renderTable({
   #  df_usCol_1
