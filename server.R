@@ -7,10 +7,7 @@ library(tidyr)
 server <- function(input, output, session) {
   # Allow for filtering datapoints on the map in the future. Adjust so that is filters based on vectors.
   dataUS <- reactive ({
-    if(is.null(input$ds_cat) & is.null(input$input_state_cc)){
-      df_BEA_usCol %>% filter(Cash.Potential %in% c(input$cp_cat[1]:input$cp_cat[2]))
-    }
-    else if(!is.null(input$ds_cat) & is.null(input$input_state_cc)){
+    if(!is.null(input$ds_cat) & is.null(input$input_state_cc)){
       df_BEA_usCol %>% filter(Cash.Potential %in% c(input$cp_cat[1]:input$cp_cat[2]) & Desirability %in% input$ds_cat)
     }
     else if(!is.null(input$ds_cat) & !is.null(input$input_state_cc)){
@@ -19,6 +16,7 @@ server <- function(input, output, session) {
     else if(is.null(input$ds_cat) & !is.null(input$input_state_cc)){
       df_BEA_usCol %>% filter(Cash.Potential %in% c(input$cp_cat[1]:input$cp_cat[2]) & State %in% input$input_state_cc)
     }
+    else {df_BEA_usCol %>% filter(Cash.Potential %in% c(input$cp_cat[1]:input$cp_cat[2]))}
   })
   #Output the leaflet Map.
   output$usa_map <- renderLeaflet({
@@ -54,13 +52,13 @@ server <- function(input, output, session) {
   observe({
     #if(is.null(input$input_state_cc)){
       states_per_cat <- 
-      if(is.null(input$ds_cat)){
-        df_BEA_usCol %>% filter(Cash.Potential %in% c(input$cp_cat[1]:input$cp_cat[2])) %>% 
+      if(!is.null(input$ds_cat)){
+        df_BEA_usCol %>% filter(Cash.Potential %in% c(input$cp_cat[1]:input$cp_cat[2]) & Desirability %in% input$ds_cat) %>% 
           `$`('State') %>%
           sort() %>% 
           unique()}
-      else if(!is.null(input$ds_cat)){
-        df_BEA_usCol %>% filter(Cash.Potential %in% c(input$cp_cat[1]:input$cp_cat[2]) & Desirability %in% input$ds_cat) %>% 
+      else{
+        df_BEA_usCol %>% filter(Cash.Potential %in% c(input$cp_cat[1]:input$cp_cat[2])) %>% 
           `$`('State') %>%
           sort() %>% 
           unique()}
